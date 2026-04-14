@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Secrets / local data
+.env
+service-account.json
+resources/
+*-service-account*.json
+*.pem
+*.key
+state.db
+state.db-*
+*.sqlite
+*.sqlite-*
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
