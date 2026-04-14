@@ -79,6 +79,7 @@ async def route(
         pushback = llm_calls.llm_morning_pushback(
             body=body,
             if_then_items=[i.model_dump() for i in classifier_output.if_then_items],
+            now=now,
             request_id=request_id,
         )
         return pushback or _template_warm_ack(intent)
@@ -86,7 +87,7 @@ async def route(
     if intent == Intent.evening_reply:
         morning_intent = _current_morning_intent(now)
         followup = llm_calls.llm_evening_followup(
-            body=body, morning_intent=morning_intent, request_id=request_id
+            body=body, morning_intent=morning_intent, now=now, request_id=request_id
         )
         return followup or _template_warm_ack(intent)
 
@@ -108,6 +109,7 @@ def _warm_ack(*, body: str, intent: Intent, now: datetime, request_id: Optional[
         intent=intent,
         active_timers=active,
         morning_intent=_current_morning_intent(now),
+        now=now,
         request_id=request_id,
     )
     return reply or _template_warm_ack(intent)

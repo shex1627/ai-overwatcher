@@ -91,6 +91,7 @@ def structured(
                     "llm_tier": tier,
                     "llm_latency_ms": latency_ms,
                     "error_class": type(exc).__name__,
+                    "error_detail": str(exc)[:500],
                     "request_id": request_id,
                 },
             )

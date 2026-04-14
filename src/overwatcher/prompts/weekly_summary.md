@@ -23,6 +23,7 @@ Rules:
 - Max 600 characters.
 
 Context:
+  Current time: {now_iso}
   Week window: {start_ts} to {end_ts}
   Message count: {message_count}
 

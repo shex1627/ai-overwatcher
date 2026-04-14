@@ -19,6 +19,7 @@ Hard rules — violating any = failed output:
   Not both.
 
 Context:
+  Current time: {now_iso}
   Classified intent: {intent}
   Active timers: {active_timers}
   Today's morning intent: {morning_intent}

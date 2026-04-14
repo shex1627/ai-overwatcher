@@ -17,15 +17,15 @@ Budget target: **<2s soft, <5s hard**. These calls sit behind the Twilio webhook
 
 | Rank | Model | Intel | Struct Latency | In $/M | Out $/M | Cache Read $/M | Cache Write $/M |
 |---|---|---:|---:|---:|---:|---:|---:|
-| primary | `minimax/MiniMax-M2.5` | ≈48 | 1074 ms | 0.30 | 1.20 | 0.03 | 0.375 |
-| fallback 1 | `anthropic/claude-haiku-4-5` | ≈37 | 634 ms | 1.00 | 5.00 | 0.10 | 1.25 |
+| primary | `anthropic/claude-haiku-4-5` | ≈37 | 634 ms | 1.00 | 5.00 | 0.10 | 1.25 |
+| fallback 1 | `minimax/MiniMax-M2.5-highspeed` | ≈48 | — | 0.30 | 1.20 | 0.03 | 0.375 |
 | fallback 2 | `gemini/gemini-3-flash-preview` | ≈45 | 1307 ms | 0.50 | 3.00 | 0.05 | — |
 | fallback 3 | `openai/gpt-5.4-mini` | 54 | 614 ms | 0.75 | 4.50 | 0.075 | — |
 
 **Why this order:**
-- **MiniMax-M2.5 primary:** cheapest on the chart (~3× cheaper input than Haiku, ~4× cheaper output) and slightly smarter on the Intelligence Index. Sits in the Intelligence-vs-Price "most attractive quadrant." Struct latency ~1.1s is well under the 2s soft budget. Cost-first default.
-- **Haiku fallback 1:** Anthropic-ecosystem fallback. Our prompts were authored with Claude's voice in mind, so if MiniMax output style drifts in practice we can swap back to Haiku as primary without changing prompts. Fastest struct latency of the chain (634ms). Worth noting: Haiku's Intelligence Index (≈37) is actually the lowest here — it's the ecosystem-consistency pick, not the quality pick.
-- **Gemini 3 Flash fallback 2:** Google infra independence for when both MiniMax and Anthropic are down.
+- **Haiku primary:** fastest struct latency of the chain (634ms), well under the 2s soft budget. Our prompts were authored with Claude's voice, so structured-output adherence is strongest here. MiniMax was previously primary for cost, but observed latency from this server (7–13s) made it unusable on the hot path — it consistently blew the 5s hard timeout.
+- **MiniMax-M2.5-highspeed fallback 1:** cheapest option (~3× cheaper input than Haiku). The `highspeed` variant is faster than plain M2.5. Used as first fallback for cost savings when Anthropic is down.
+- **Gemini 3 Flash fallback 2:** Google infra independence for when both Anthropic and MiniMax are down.
 - **GPT-5.4-mini fallback 3:** highest intelligence of this tier (54) and matches Haiku's latency. Placed last because it's the most expensive per-token of the fast tier — use only when cheaper options have failed.
 
 ---
@@ -36,14 +36,14 @@ These run from APScheduler cron jobs or FastAPI `BackgroundTasks`, not on the Tw
 
 | Rank | Model | Intel | Struct Latency | In $/M | Out $/M | Cache Read $/M | Cache Write $/M |
 |---|---|---:|---:|---:|---:|---:|---:|
-| primary | `minimax/MiniMax-M2.5` | ≈48 | 1074 ms | 0.30 | 1.20 | 0.03 | 0.375 |
+| primary | `minimax/MiniMax-M2.7` | ≈50 | — | — | — | — | — |
 | fallback 1 | `anthropic/claude-sonnet-4-5` | ≈50 | 1775 ms | 3.00 | 15.00 | 0.30 | 3.75 |
 | fallback 2 | `openai/gpt-5.4` | 57 | 1208 ms | 2.50 | 15.00 | 0.25 | — |
 | fallback 3 | `gemini/gemini-3.1-pro-preview` | 57 | 10438 ms | 2.00 | 12.00 | 0.20 | — |
 | fallback 4 | `anthropic/claude-opus-4-6` | 53 | 2049 ms | 5.00 | 25.00 | 0.50 | 6.25 |
 
 **Why this order:**
-- **MiniMax-M2.5 primary:** 10× cheaper input than Sonnet ($0.30 vs $3.00/M) and 12× cheaper output. For an N=1 cost-first system, this pulls expected spend from dollars/day into cents/day. Intelligence Index (~48) sits just below Sonnet (~50) — close enough that the cost delta dominates. Latency (~1.1s struct) is the fastest of the quality tier.
+- **MiniMax-M2.7 primary:** newest MiniMax model, Intelligence Index ~50 (matches Sonnet) at a fraction of the cost. Quality tier runs from cron/BackgroundTasks where MiniMax's higher latency from this server (7–13s) is acceptable — no Twilio webhook timeout pressure. Cost-first default for an N=1 system.
 - **Sonnet 4.5 fallback 1:** Anthropic-ecosystem fallback. Our prompts were tuned for Claude voice, so if MiniMax output style drifts or fails validation consistently in practice, swapping primary back to Sonnet requires only an env change.
 - **GPT-5.4 fallback 2:** highest frontier intelligence tied with Gemini (57), and **8× faster than Gemini on structured output** in our probe (1.2s vs 10.4s). On a fallback walk, latency matters — we've already lost two providers by this point.
 - **Gemini 3.1 Pro fallback 3:** same intelligence as GPT-5.4 (57), cheapest input at $2/M, "most attractive quadrant" on the Intelligence-vs-Price chart. Placed after GPT purely because of the structured-output latency gap.
@@ -54,7 +54,9 @@ These run from APScheduler cron jobs or FastAPI `BackgroundTasks`, not on the Tw
 ## Operational notes
 
 - **Gemini 3.1 Pro's 10.4s structured-output latency** is the biggest surprise from the probe. Plain text generation is much faster. If we later add a "quality, plain text" route (e.g. for summaries we manually post-process), Gemini moves up.
-- **MiniMax-M2.5 outperformed its "lightning" variant** in our probe (1074 ms vs 2337 ms on struct). The lightning variant appears to do hidden reasoning. Using plain M2.5 in both tiers.
+- **MiniMax latency from bookhouse is 7–13s** on structured output, far above the probe benchmarks (which likely ran from a lower-latency network). This made MiniMax unusable as fast-tier primary — Haiku at 634ms is the practical choice. Quality tier tolerates the latency since it runs off-path.
+- **MiniMax-M2.5-highspeed** is the `highspeed` variant of M2.5 (same quality, faster inference). Used as fast-tier fallback. **MiniMax-M2.7** is the newest model (Intelligence ~50), used as quality-tier primary.
+- MiniMax models newer than M2.5 are not yet in LiteLLM's model registry but work via pass-through to MiniMax's API.
 - **Cache write cost** shows Anthropic's explicit `cache_creation_input_token_cost` and MiniMax's `cache_creation_input_token_cost`. OpenAI and Gemini do automatic caching with no separate write fee exposed in LiteLLM's registry.
 - **Gemini `input_cost_per_token_above_200k_tokens`** doubles input cost past 200k tokens. Irrelevant at N=1 (our max prompt is the weekly summary ~10k tokens).
 - **Probe script:** `.venv/bin/python scripts/probe_llm.py` — run this after any model name change, any provider key change, or monthly to catch silent model retirements.
@@ -63,10 +65,10 @@ These run from APScheduler cron jobs or FastAPI `BackgroundTasks`, not on the Tw
 
 ## Expected cost at N=1
 
-Envelope math with MiniMax-M2.5 as primary on both tiers:
+Envelope math with Haiku as fast-tier primary, MiniMax-M2.7 as quality-tier primary:
 
-- ~12 fast-tier calls/day × (avg 500 input + 200 output): ~6k input, 2.4k output/day with MiniMax → **~$0.005/day**
+- ~12 fast-tier calls/day × (avg 500 input + 200 output): ~6k input, 2.4k output/day with Haiku → **~$0.018/day**
 - ~2–3 quality-tier calls/day × (avg 1.5k input + 400 output): ~4.5k input, 1.2k output/day with MiniMax → **~$0.003/day**
 - Friday summary: 10k input + 600 output with MiniMax → **~$0.004/week**
-- **Expected total: ~$0.25/month at N=1 when MiniMax is healthy.**
-- Worst case (every call falls over to Sonnet + Opus): ~$3–4/month. Monitor the heartbeat row's `error_count_24h` to catch persistent MiniMax failover.
+- **Expected total: ~$0.65/month at N=1 when both providers are healthy.**
+- Worst case (every call falls over to Sonnet + Opus): ~$3–4/month. Monitor the heartbeat row's `error_count_24h` to catch persistent failover.

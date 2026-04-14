@@ -33,7 +33,7 @@ async def run() -> None:
             for m in msgs
         ]
         summary = llm_calls.llm_weekly_summary(
-            messages=msg_dicts, start_ts=start_iso, end_ts=end_iso
+            messages=msg_dicts, start_ts=start_iso, end_ts=end_iso, now=now
         )
         if summary:
             body = summary

@@ -78,6 +78,7 @@ def llm_warm_ack(
     intent: Intent,
     active_timers: list[dict],
     morning_intent: Optional[str],
+    now: datetime,
     request_id: Optional[str] = None,
 ) -> Optional[str]:
     """Generate a warm reply. Returns None on total failure — caller falls back to template."""
@@ -86,6 +87,7 @@ def llm_warm_ack(
         f"{t['task']} ({t['duration_min']}min)" for t in active_timers
     )
     rendered = prompt.render(
+        now_iso=now.isoformat(),
         intent=intent.value,
         active_timers=active_str,
         morning_intent=morning_intent or "not set",
@@ -111,10 +113,12 @@ def llm_morning_pushback(
     *,
     body: str,
     if_then_items: list[dict],
+    now: datetime,
     request_id: Optional[str] = None,
 ) -> Optional[str]:
     prompt = prompts_loader.load("morning_pushback")
     rendered = prompt.render(
+        now_iso=now.isoformat(),
         if_then_items=json.dumps(if_then_items) if if_then_items else "none",
         body=body,
     )
@@ -137,10 +141,12 @@ def llm_evening_followup(
     *,
     body: str,
     morning_intent: Optional[str],
+    now: datetime,
     request_id: Optional[str] = None,
 ) -> Optional[str]:
     prompt = prompts_loader.load("evening_followup")
     rendered = prompt.render(
+        now_iso=now.isoformat(),
         morning_intent=morning_intent or "not set",
         body=body,
     )
@@ -164,6 +170,7 @@ def llm_weekly_summary(
     messages: list[dict],
     start_ts: str,
     end_ts: str,
+    now: datetime,
     request_id: Optional[str] = None,
 ) -> Optional[str]:
     prompt = prompts_loader.load("weekly_summary")
@@ -178,6 +185,7 @@ def llm_weekly_summary(
         for m in messages
     ]
     rendered = prompt.render(
+        now_iso=now.isoformat(),
         start_ts=start_ts,
         end_ts=end_ts,
         message_count=len(messages),

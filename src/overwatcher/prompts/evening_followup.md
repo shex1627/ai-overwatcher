@@ -22,6 +22,7 @@ Rules:
 - Max 3 sentences, max 300 chars.
 
 Context:
+  Current time: {now_iso}
   Today's morning plan: {morning_intent}
 
 Evening reply:

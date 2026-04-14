@@ -22,6 +22,7 @@ Rules:
 - Max 3 sentences, max 300 chars.
 
 Context:
+  Current time: {now_iso}
   Parsed if-then items: {if_then_items}
 
 User's morning reply:
