@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 
-from overwatcher import llm_calls, repo, sms
+from overwatcher import llm_calls, repo, sheets, sms
 from overwatcher.config import get_settings
 
 log = logging.getLogger(__name__)
@@ -45,4 +45,11 @@ async def run() -> None:
 
     sms.send_sms(body)
     repo.insert_message(ts=now.isoformat(), direction="out", type_="weekly", raw_text=body)
+    try:
+        sheets.append_row(
+            timestamp=now.isoformat(), direction="out", type_="weekly",
+            mode=None, raw_text=body, parsed=None, timer_id=None, request_id=None,
+        )
+    except Exception:  # noqa: BLE001
+        log.warning("sheets_append_failed", extra={"job": "weekly"})
     log.info("weekly_sent", extra={"inbound": inbound, "llm_used": inbound > 0})

@@ -156,11 +156,25 @@ async def _process_inbound(message_sid: str, body: str, request_id: str) -> None
         )
         return
 
+    out_ts = datetime.now(settings.tz).isoformat()
     repo.insert_message(
-        ts=datetime.now(settings.tz).isoformat(),
+        ts=out_ts,
         direction="out",
         type_="ack",
         raw_text=reply,
         twilio_sid=twilio_sid,
         request_id=request_id,
     )
+    try:
+        sheets.append_row(
+            timestamp=out_ts,
+            direction="out",
+            type_="ack",
+            mode=None,
+            raw_text=reply,
+            parsed=None,
+            timer_id=None,
+            request_id=request_id,
+        )
+    except Exception:  # noqa: BLE001 — Sheets is cosmetic
+        log.warning("sheets_append_failed", extra={"request_id": request_id})

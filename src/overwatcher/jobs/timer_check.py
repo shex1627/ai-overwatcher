@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from overwatcher import repo, sms
+from overwatcher import repo, sheets, sms
 from overwatcher.config import get_settings
 
 log = logging.getLogger(__name__)
@@ -30,6 +30,13 @@ async def mid_check(timer_id: int) -> None:
         raw_text=body,
         related_timer_id=timer_id,
     )
+    try:
+        sheets.append_row(
+            timestamp=now.isoformat(), direction="out", type_="mid_check",
+            mode=None, raw_text=body, parsed=None, timer_id=timer_id, request_id=None,
+        )
+    except Exception:  # noqa: BLE001
+        log.warning("sheets_append_failed", extra={"job": "mid_check", "timer_id": timer_id})
 
 
 async def end_check(timer_id: int) -> None:
@@ -48,3 +55,10 @@ async def end_check(timer_id: int) -> None:
         raw_text=body,
         related_timer_id=timer_id,
     )
+    try:
+        sheets.append_row(
+            timestamp=now.isoformat(), direction="out", type_="timer_check",
+            mode=None, raw_text=body, parsed=None, timer_id=timer_id, request_id=None,
+        )
+    except Exception:  # noqa: BLE001
+        log.warning("sheets_append_failed", extra={"job": "timer_check", "timer_id": timer_id})

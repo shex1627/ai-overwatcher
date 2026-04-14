@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from overwatcher import repo, sms
+from overwatcher import repo, sheets, sms
 from overwatcher.config import get_settings
 
 log = logging.getLogger(__name__)
@@ -27,4 +27,11 @@ async def run() -> None:
         raw_text=MORNING_PROMPT,
     )
     repo.update_day_state(date_str, mode="bookend", morning_msg_id=m.id)
+    try:
+        sheets.append_row(
+            timestamp=now.isoformat(), direction="out", type_="morning",
+            mode="bookend", raw_text=MORNING_PROMPT, parsed=None, timer_id=None, request_id=None,
+        )
+    except Exception:  # noqa: BLE001
+        log.warning("sheets_append_failed", extra={"job": "morning"})
     log.info("morning_prompt_sent", extra={"date": date_str})
