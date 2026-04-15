@@ -19,6 +19,9 @@ state.db-*
 *.sqlite
 *.sqlite-*
 
+# Benchmark run artifacts
+benchmarks/
+
 # Editor
 .vscode/
 .idea/
